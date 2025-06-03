@@ -1,4 +1,2 @@
-main.i
-main.s
-blink_disasm.s
 launchpad
+build

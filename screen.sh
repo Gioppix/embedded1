@@ -11,4 +11,4 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Start screen with a named session
-TERM=xterm screen -S arduino `ls /dev/cu.usbmodem*` 9600,cs8,-cstopb,-parenb,-icrnl,-onlcr,-echo,-icanon
+TERM=xterm screen -S arduino `ls /dev/cu.usbmodem*` 9600,cs8,-cstopb,-parenb,-icrnl,-onlcr,-echo,-icanon,-hupcl
