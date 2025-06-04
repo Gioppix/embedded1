@@ -17,6 +17,9 @@
 // losing one means losing a tick. Other example values: (1 * 64 * 250) /
 // 16000000 = 1/1000, 1 interrupt every 0.004 secs, too fast.
 //
+// Another option:
+// (64 * x * 1) / 16000000 = 1/1000 (one interrupt per ms)
+//
 // Current numbers give us an interrupt every 0.1 ms, very convenient
 //
 // Numbers must be integers (duh)
@@ -25,7 +28,7 @@
 // For register TCCR0B
 #define PRESCALER_BITS 0b010
 
-// ~4 million secs
+// ~4 million msecs
 uint32_t current_time = 0;
 
 volatile uint8_t times_match_reached = 0;
@@ -59,10 +62,11 @@ void init_timer0() {
     TCCR0B |= PRESCALER_BITS;
 }
 
-void sleep(uint32_t ms) {
+void sleep_ms(uint32_t ms) {
     uint32_t start_time = get_current_time();
-    while (get_current_time() - start_time < ms)
-        ;
+    while (get_current_time() - start_time < ms) {
+        sleep();
+    }
 }
 
 // This is needed as 32bits operations are not atomic

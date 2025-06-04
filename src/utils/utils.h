@@ -7,22 +7,15 @@ typedef uint8_t boolean;
 #define true 1
 #define false 0
 
-#define BIT0 (1 << 0);
-#define BIT1 (1 << 1);
-#define BIT2 (1 << 2);
-#define BIT3 (1 << 3);
-#define BIT4 (1 << 4);
-#define BIT5 (1 << 5);
-#define BIT6 (1 << 6);
-#define BIT7 (1 << 7);
-
 #define SET_BIT(address, bit_n) address |= 1 << bit_n
 #define CLEAR_BIT(address, bit_n) address &= ~(1 << bit_n)
 #define MANAGE_BIT(address, bit_n, val)                                        \
     address = (address & ~(1 << bit_n)) | (val << bit_n)
 #define GET_BIT(address, bit_n) ((address >> bit_n) & 1)
 
-#define EXPAND_ADDRESS(address) *((volatile uint8_t *)(address))
+#define EXPAND_ADDRESS_TYPE(address, type) *((volatile type *)(address))
+#define EXPAND_ADDRESS(address) EXPAND_ADDRESS_TYPE(address, uint8_t)
+#define EXPAND_ADDRESS_16(address) EXPAND_ADDRESS_TYPE(address, uint16_t)
 #define BIT_NO(name, num) static const uint8_t name = num##U
 
 #define INTERRUPT(n)                                                           \
@@ -34,7 +27,12 @@ typedef uint8_t boolean;
          __critical_flag;                                                      \
          __critical_flag = false, manage_global_interrupts(true))
 
-typedef enum { USART_QUEUE_FULL, BAD_INTERRUPT } ERROR;
+typedef enum {
+    USART_QUEUE_FULL,
+    BAD_INTERRUPT,
+    CONVERSION_NOT_STARTED,
+    CONVERSION_NOT_REQUESTED
+} ERROR;
 
 void init_errors();
 void throw_error(ERROR error_kind);
@@ -51,6 +49,7 @@ manage_global_interrupts(boolean enable) {
 void init_short_blink();
 void short_blink();
 
-void wait();
+void init_sleep();
+void sleep();
 
 #endif

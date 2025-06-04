@@ -1,3 +1,4 @@
+#include "analog/analog.h"
 #include "ports.h"
 #include "serial/serial.h"
 #include "timers/timer.h"
@@ -13,27 +14,25 @@ INTERRUPT(default) { throw_error(BAD_INTERRUPT); }
 
 int main(void) {
     init_errors();
+    init_timer0();
+    init_short_blink();
+    init_sleep();
+    init_ADC();
+    init_USART();
 
-    // Show bootloop
+    // To see bootloop
     SET_BIT(DDRB, 1);
     SET_BIT(PORTB, 1);
-    wait();
+    sleep_ms(100);
     CLEAR_BIT(PORTB, 1);
-
-    init_USART(MYUBRR);
 
     // Enable global interrupts
     manage_global_interrupts(true);
 
-    init_short_blink();
-    init_timer0();
-
-    uint32_t i = 0;
     while (1) {
-        if (get_current_time() > i * 1000) {
-            boolean res = print_num(i);
-            i++;
-        }
+        uint16_t res = analog_read_pin_sync(1);
+        println_num(res);
+        sleep_ms(100);
     }
 
     return 0;

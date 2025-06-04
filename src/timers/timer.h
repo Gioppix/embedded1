@@ -8,6 +8,6 @@ void init_timer0();
 
 uint32_t get_current_time();
 
-void sleep(uint32_t ms);
+void sleep_ms(uint32_t ms);
 
 #endif
