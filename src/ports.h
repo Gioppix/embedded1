@@ -12,7 +12,5 @@
 // 1=output, 0=input
 #define DDRB EXPAND_ADDRESS(0x24)
 
-// 1=high, 0=low
-#define PORTB EXPAND_ADDRESS(0x25)
 
 #endif

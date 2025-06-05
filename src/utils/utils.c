@@ -9,13 +9,14 @@ BIT_NO(SM0, 1);
 // This is idle state, so that every interrupt wakes up the CPU
 #define SLEEP_MODE 0b000
 
+
 void init_errors() {
-    // Show bootloop
-    SET_BIT(DDRB, 1);
+    init_blinks();
 }
 
+// Busy wait for a while, no need for interrupts
 void wait() {
-    for (unsigned int i = 0; i < 30000; i++)
+    for (unsigned int i = 0; i < 10000; i++)
         for (int j = 0; j < 10; j++)
             ;
 }
@@ -23,28 +24,39 @@ void wait() {
 void throw_error(ERROR error_kind) {
     manage_global_interrupts(false);
     while (1) {
-        SET_BIT(PORTB, 1);
-        wait();
-        CLEAR_BIT(PORTB, 1);
-        wait();
+        for (uint8_t i = 0; i < error_kind; i++) {
+            SET_BIT(PORTB, 1);
+            on_red();
+            wait();
+            off_red();
+            wait();
+        }
+        for (uint8_t i = 0; i < 5; i++) {
+            wait();
+        }
     }
 }
 
 void init_sleep() {
     // Enables sleep mode.
-    // No need to disable it for safety
+    // No need to disable it afterwards for safety
     SET_BIT(SMCR, SE);
 
     SMCR |= SLEEP_MODE << SM0;
 }
 
-void sleep() { asm("sleep"); }
+void sleep() {
+    asm("sleep");
+}
 
-void init_short_blink() { SET_BIT(DDRB, 0); }
+
+void init_blinks() {
+    SET_BIT(DDRB, 0);
+}
 
 void short_blink() {
-    SET_BIT(PORTB, 0);
+    on_green();
     wait();
-    CLEAR_BIT(PORTB, 0);
+    off_green();
     wait();
 }

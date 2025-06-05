@@ -3,8 +3,8 @@
 // https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf#page=87
 #define TCCR0A EXPAND_ADDRESS(0x44)
 #define TCCR0B EXPAND_ADDRESS(0x45)
-#define TCNT0 EXPAND_ADDRESS(0x46)
-#define OCR0A EXPAND_ADDRESS(0x47)
+#define TCNT0  EXPAND_ADDRESS(0x46)
+#define OCR0A  EXPAND_ADDRESS(0x47)
 #define TIMSK0 EXPAND_ADDRESS(0x6E)
 
 // (prescaler * number_to_reach * number_of_reaches) / freq = time_elapsed
@@ -23,13 +23,13 @@
 // Current numbers give us an interrupt every 0.1 ms, very convenient
 //
 // Numbers must be integers (duh)
-#define MATCH_A 200
+#define MATCH_A        200
 #define TIMES_TO_MATCH 10
 // For register TCCR0B
 #define PRESCALER_BITS 0b010
 
 // ~4 million msecs
-uint32_t current_time = 0;
+volatile uint32_t current_time = 0;
 
 volatile uint8_t times_match_reached = 0;
 
@@ -72,6 +72,8 @@ void sleep_ms(uint32_t ms) {
 // This is needed as 32bits operations are not atomic
 inline uint32_t get_current_time() {
     uint32_t local_current;
-    CRITICAL { local_current = current_time; }
+    CRITICAL {
+        local_current = current_time;
+    }
     return local_current;
 }

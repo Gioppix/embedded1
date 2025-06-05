@@ -16,7 +16,7 @@
 
 BIT_NO(UCSZ00, 1);
 #define UCSR0A EXPAND_ADDRESS(0xC0)
-#define UDR0 EXPAND_ADDRESS(0xC6)
+#define UDR0   EXPAND_ADDRESS(0xC6)
 BIT_NO(U2X0, 1);
 
 #define UCSR0B EXPAND_ADDRESS(0xC1)
@@ -24,7 +24,7 @@ BIT_NO(TXEN0, 3);
 BIT_NO(RXEN0, 4);
 BIT_NO(UDRIE0, 5);
 
-DECLARE_QUEUE(usart_out, uint8_t, uint8_t, 20)
+DECLARE_QUEUE(usart_out, uint8_t, uint8_t, 250)
 
 // Interrupts (MUST DO N-1!!! THEY ARE ACTUALLY 0-BASED):
 // https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf#page=49
@@ -48,8 +48,8 @@ void init_USART() {
     SET_BIT(UCSR0A, U2X0);
 
     // Set baud rate, high and low (16 bits)
-    UBRR0H = (unsigned char)(MYUBRR >> 8);
-    UBRR0L = (unsigned char)MYUBRR;
+    UBRR0H = (unsigned char) (MYUBRR >> 8);
+    UBRR0L = (unsigned char) MYUBRR;
     // Enable receiver and transmitter
     UCSR0B = (1 << RXEN0) | (1 << TXEN0);
     // Set frame format: 8data, 1 stop bit
@@ -58,7 +58,9 @@ void init_USART() {
 
 static boolean send_data(uint8_t *data, uint8_t len) {
     boolean success_enqueue;
-    CRITICAL { success_enqueue = usart_out_enqueue_n(data, len); }
+    CRITICAL {
+        success_enqueue = usart_out_enqueue_n(data, len);
+    }
 
     if (success_enqueue) {
         // Enable the data empty interrupt
@@ -69,6 +71,16 @@ static boolean send_data(uint8_t *data, uint8_t len) {
     }
 
     return success_enqueue;
+}
+
+void serial_queue_join() {
+    volatile boolean queue_empty = false;
+
+    while (!queue_empty) {
+        CRITICAL {
+            queue_empty = usart_out_empty();
+        }
+    }
 }
 
 boolean println_char(uint8_t c) {
@@ -88,8 +100,8 @@ boolean println_num(uint32_t n) {
     if (n == 0) {
         output[output_len++] = '0';
     } else {
-        uint32_t temp_n = n;
-        uint8_t digit_count = 0;
+        uint32_t temp_n      = n;
+        uint8_t  digit_count = 0;
         while (temp_n > 0) {
             digit_count++;
             temp_n /= 10;
@@ -102,6 +114,46 @@ boolean println_num(uint32_t n) {
             n /= 10;
         }
     }
+    output[output_len++] = '\r';
+    output[output_len++] = '\n';
+
+    return send_data(output, output_len);
+}
+
+boolean println_bin(uint32_t n, uint8_t n_bits) {
+    // 32 bits + '\r' + '\n' + some extra (better safe than sorry)
+    uint8_t output[40];
+    uint8_t output_len = 0;
+
+    output_len += n_bits;
+    uint8_t pos = output_len - 1;
+    for (uint8_t i = 0; i < n_bits; i++) {
+        output[pos--] = (n & 1) + '0';
+        n >>= 1;
+    }
+
+    output[output_len++] = '\r';
+    output[output_len++] = '\n';
+
+    return send_data(output, output_len);
+}
+
+boolean println_str(const char *str) {
+    // Calculate string length
+    uint8_t str_len = 0;
+    while (str[str_len] != '\0') {
+        str_len++;
+    }
+
+    // Allocate buffer for string + '\r' + '\n'
+    uint8_t output[str_len + 2];
+    uint8_t output_len = 0;
+
+    // Copy string to output buffer
+    for (uint8_t i = 0; i < str_len; i++) {
+        output[output_len++] = str[i];
+    }
+
     output[output_len++] = '\r';
     output[output_len++] = '\n';
 
