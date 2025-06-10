@@ -21,12 +21,13 @@ typedef uint8_t boolean;
 #define INTERRUPT(n)                                                                               \
     void __attribute__((__signal__, __used__, __externally_visible__)) __vector_##n(void)
 
+// Fancy "hack" to let us use curly brackets. Thanks AI
 #define CRITICAL                                                                                   \
     for (boolean __critical_flag = (manage_global_interrupts(false), true); __critical_flag;       \
          __critical_flag         = false, manage_global_interrupts(true))
 
 typedef enum {
-    // Start from 2 so that can see led blink
+    // Start from 2 so that we can see the led blink
     SEE_SERIAL = 2,
     USART_QUEUE_FULL,
     BAD_INTERRUPT,
@@ -50,17 +51,17 @@ __attribute__((always_inline)) inline void manage_global_interrupts(boolean enab
 };
 
 #define PORTB EXPAND_ADDRESS(0x25)
-#define DEFINE_COLOR_FUNCTIONS(color, bit_no)                                                      \
+#define DEFINE_COLOR_FUNCTIONS(color, address, bit_no)                                             \
     __attribute__((always_inline)) inline void on_##color() {                                      \
-        SET_BIT(PORTB, bit_no);                                                                    \
+        SET_BIT(address, bit_no);                                                                  \
     }                                                                                              \
     __attribute__((always_inline)) inline void off_##color() {                                     \
-        CLEAR_BIT(PORTB, bit_no);                                                                  \
+        CLEAR_BIT(address, bit_no);                                                                \
     }
 
-DEFINE_COLOR_FUNCTIONS(blue, 0)
-DEFINE_COLOR_FUNCTIONS(red, 1)
-DEFINE_COLOR_FUNCTIONS(green, 2)
+DEFINE_COLOR_FUNCTIONS(blue, PORTB, 0)
+DEFINE_COLOR_FUNCTIONS(red, PORTB, 1)
+DEFINE_COLOR_FUNCTIONS(green, PORTB, 2)
 
 void init_blinks();
 void short_blink();

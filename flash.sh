@@ -51,7 +51,7 @@ fi
 echo "🔧 Compiling and linking all source files..."
 
 # Compile and link all .c files in one command
-avr-gcc -mmcu=$MCU -Wall -O0 -DF_CPU=$F_CPU -I$SRC_DIR -o $BUILD_DIR/$TARGET.elf $C_FILES
+avr-gcc -mmcu=$MCU -Wall -O3 -DF_CPU=$F_CPU -I$SRC_DIR -o $BUILD_DIR/$TARGET.elf $C_FILES
 if [ $? -ne 0 ]; then
     echo "❌ Compilation and linking failed"
     exit 1

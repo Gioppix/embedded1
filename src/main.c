@@ -2,6 +2,7 @@
 #include "lcd2004/lcd2004.h"
 #include "ports.h"
 #include "serial/serial.h"
+#include "software-serial/sw-serial.h"
 #include "timers/timer.h"
 #include "two_wires/tw.h"
 #include "utils/utils.h"
@@ -31,6 +32,7 @@ int main(void) {
     init_ADC();
     init_USART();
     init_two_wires();
+    init_sw_serial();
 
     // Userful to find the display
     // scan_i2c_addresses();
@@ -46,6 +48,40 @@ int main(void) {
     uint8_t row     = 0;
     uint8_t max_row = 3;
 
+    // send_byte('A');
+    // send_byte('T');
+    // send_byte('+');
+    // send_byte('N');
+    // send_byte('A');
+    // send_byte('M');
+    // send_byte('E');
+    // send_byte('D');
+    // send_byte('E');
+    // send_byte('S');
+    // send_byte('I');
+    // send_byte('R');
+    // send_byte('E');
+    // send_byte('D');
+    // send_byte(' ');
+    // send_byte('N');
+    // send_byte('A');
+    // send_byte('M');
+    // send_byte('E');
+
+    // send_byte('\r');
+    // send_byte('\n');
+
+    // send_byte('A');
+    // send_byte('T');
+    // send_byte('+');
+    // send_byte('R');
+    // send_byte('E');
+    // send_byte('S');
+    // send_byte('E');
+    // send_byte('T');
+    // send_byte('\r');
+    // send_byte('\n');
+
     while (1) {
         throw_error_if_present(lcd_clean());
         throw_error_if_present(lcd_set_cursor(row, col));
@@ -57,6 +93,9 @@ int main(void) {
             col++;
             col %= (max_col + 1);
         }
+
+        boolean s = send_byte('a');
+        println_num(deb);
 
         sleep_ms(250);
     }
