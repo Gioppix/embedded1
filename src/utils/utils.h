@@ -27,9 +27,11 @@ typedef uint8_t boolean;
          __critical_flag         = false, manage_global_interrupts(true))
 
 typedef enum {
+    ALL_GOOD = 0,
+
     // Start from 2 so that we can see the led blink
-    SEE_SERIAL = 2,
-    USART_QUEUE_FULL,
+    USART_OUT_QUEUE_FULL = 2,
+    USART_IN_QUEUE_FULL,
     BAD_INTERRUPT,
     CONVERSION_NOT_STARTED,
     CONVERSION_NOT_REQUESTED,
@@ -37,6 +39,10 @@ typedef enum {
     TWO_WIRES_NOT_SENDING,
     TWO_WIRES_NO_DATA_TO_SEND,
     TWO_WIRES_UNEXPECTED_STATE,
+    TWO_WIRES_NO_START_ACK,
+    TWO_WIRES_NO_DATA_ACK,
+    TWO_WIRES_ARBITRATION_LOST,
+    LCD_INVALID_ROW_OR_COL
 } ERROR;
 
 void init_errors();

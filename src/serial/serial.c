@@ -5,33 +5,47 @@
 // TODO what?
 // https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf#page=149
 #define FOSC 16000000 // Clock Speed
-#define BAUD 9600
+#define BAUD 1000000
 // Async double speed
 // https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf#page=146
 #define MYUBRR (FOSC / 8 / BAUD - 1)
 
 #define UBRR0H EXPAND_ADDRESS(0xC5)
 #define UBRR0L EXPAND_ADDRESS(0xC4)
-#define UCSR0C EXPAND_ADDRESS(0xC2)
 
+#define UCSR0C EXPAND_ADDRESS(0xC2)
 BIT_NO(UCSZ00, 1);
+
 #define UCSR0A EXPAND_ADDRESS(0xC0)
-#define UDR0   EXPAND_ADDRESS(0xC6)
+
+// This is a "strange" register: read and write ops are performed on different physical places
+#define UDR0 EXPAND_ADDRESS(0xC6)
 BIT_NO(U2X0, 1);
 
 #define UCSR0B EXPAND_ADDRESS(0xC1)
 BIT_NO(TXEN0, 3);
 BIT_NO(RXEN0, 4);
 BIT_NO(UDRIE0, 5);
+BIT_NO(RXCIE0, 7);
 
-DECLARE_QUEUE(usart_out, uint8_t, uint8_t, 250)
+DECLARE_QUEUE(usart_out, uint8_t, uint8_t, 100)
+DECLARE_QUEUE(usart_in, uint8_t, uint8_t, 100)
 
 // Interrupts (MUST DO N-1!!! THEY ARE ACTUALLY 0-BASED):
 // https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf#page=49
 
+// USART, RX complete
+INTERRUPT(18) {
+    boolean res = usart_in_enqueue(UDR0);
+    if (!res) {
+        throw_error(USART_IN_QUEUE_FULL);
+    }
+}
+
 // USART, data register empty
 INTERRUPT(19) {
-    uint8_t data_to_send;
+    // UDR0 = 'a';
+    uint8_t data_to_send = 'a';
     if (usart_out_dequeue(&data_to_send)) {
         // Data found in queue, send it
         UDR0 = data_to_send;
@@ -54,6 +68,9 @@ void init_USART() {
     UCSR0B = (1 << RXEN0) | (1 << TXEN0);
     // Set frame format: 8data, 1 stop bit
     UCSR0C = (3 << UCSZ00);
+
+    // Enable RX interrupts
+    SET_BIT(UCSR0B, RXCIE0);
 }
 
 static boolean send_data(uint8_t *data, uint8_t len) {
@@ -83,17 +100,12 @@ void serial_queue_join() {
     }
 }
 
-boolean println_char(uint8_t c) {
-    uint8_t output[3];
-    output[0] = c;
-    output[1] = '\r';
-    output[2] = '\n';
-
-    return send_data(output, 3);
+boolean print_char(uint8_t c) {
+    return send_data(&c, 1);
 }
 
-boolean println_num(uint32_t n) {
-    // Max digits (3) + '\r' + '\n' + some extra (better safe than sorry)
+boolean print_num(uint32_t n) {
+    // Max digits (10) + some extra (better safe than sorry)
     uint8_t output[20];
     uint8_t output_len = 0;
 
@@ -114,14 +126,12 @@ boolean println_num(uint32_t n) {
             n /= 10;
         }
     }
-    output[output_len++] = '\r';
-    output[output_len++] = '\n';
 
     return send_data(output, output_len);
 }
 
-boolean println_bin(uint32_t n, uint8_t n_bits) {
-    // 32 bits + '\r' + '\n' + some extra (better safe than sorry)
+boolean print_bin(uint32_t n, uint8_t n_bits) {
+    // 32 bits + some extra (better safe than sorry)
     uint8_t output[40];
     uint8_t output_len = 0;
 
@@ -132,21 +142,18 @@ boolean println_bin(uint32_t n, uint8_t n_bits) {
         n >>= 1;
     }
 
-    output[output_len++] = '\r';
-    output[output_len++] = '\n';
-
     return send_data(output, output_len);
 }
 
-boolean println_str(const char *str) {
+boolean print_str(const char *str) {
     // Calculate string length
     uint8_t str_len = 0;
     while (str[str_len] != '\0') {
         str_len++;
     }
 
-    // Allocate buffer for string + '\r' + '\n'
-    uint8_t output[str_len + 2];
+    // Allocate buffer for string
+    uint8_t output[str_len];
     uint8_t output_len = 0;
 
     // Copy string to output buffer
@@ -154,8 +161,45 @@ boolean println_str(const char *str) {
         output[output_len++] = str[i];
     }
 
-    output[output_len++] = '\r';
-    output[output_len++] = '\n';
-
     return send_data(output, output_len);
+}
+
+boolean print_ln() {
+    uint8_t output[2];
+    output[0] = '\r';
+    output[1] = '\n';
+
+    return send_data(output, 2);
+}
+
+boolean println_char(uint8_t c) {
+    boolean success = print_char(c);
+    if (success) {
+        success = print_ln();
+    }
+    return success;
+}
+
+boolean println_num(uint32_t n) {
+    boolean success = print_num(n);
+    if (success) {
+        success = print_ln();
+    }
+    return success;
+}
+
+boolean println_bin(uint32_t n, uint8_t n_bits) {
+    boolean success = print_bin(n, n_bits);
+    if (success) {
+        success = print_ln();
+    }
+    return success;
+}
+
+boolean println_str(const char *str) {
+    boolean success = print_str(str);
+    if (success) {
+        success = print_ln();
+    }
+    return success;
 }

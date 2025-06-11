@@ -60,18 +60,18 @@ BIT_NO(TWPS0, 0);
 // No need for sending_data to be atomic since not modified inside interrupts
 boolean sending_data;
 
-volatile uint8_t       slave_address;
-volatile uint8_t       data[MAX_DATA_LEN];
-volatile uint8_t       data_index_to_send;
-volatile uint8_t       data_len;
-volatile boolean       send_complete;
-volatile TWO_WIRES_ERR error;
-volatile uint8_t       retries_count;
+volatile uint8_t slave_address;
+volatile uint8_t data[MAX_DATA_LEN];
+volatile uint8_t data_index_to_send;
+volatile uint8_t data_len;
+volatile boolean send_complete;
+volatile ERROR   error;
+volatile uint8_t retries_count;
 #define MAX_RETIRES 10
 
 // Return whether max_retires exeeded
 // `maybe_can_continue_twcr`: If not 0, TWCR is set if MAX_RETIRES is not reached
-boolean retry_or_error(TWO_WIRES_ERR maybe_err, uint8_t maybe_can_continue_twcr) {
+boolean retry_or_error(ERROR maybe_err, uint8_t maybe_can_continue_twcr) {
     if (retries_count > MAX_RETIRES) {
         error         = maybe_err;
         send_complete = true;
@@ -136,7 +136,7 @@ INTERRUPT(24) {
 
             // Repeated start: retry (?)
             // Clear the flag to continue
-            retry_or_error(NO_START_ACK, DEFAULT_TWCR | TWINT | TWSTA);
+            retry_or_error(TWO_WIRES_NO_START_ACK, DEFAULT_TWCR | TWINT | TWSTA);
 
 
             break;
@@ -157,7 +157,7 @@ INTERRUPT(24) {
             // Load data byte, repeated START, STOP, or STOP+START based on
             // requirements
 
-            boolean max_retries_reached = retry_or_error(NO_DATA_ACK, 0);
+            boolean max_retries_reached = retry_or_error(TWO_WIRES_NO_DATA_ACK, 0);
 
             if (!max_retries_reached) {
                 send_byte_and_continue();
@@ -172,7 +172,7 @@ INTERRUPT(24) {
             // bus becomes free
 
             // retry
-            retry_or_error(ARBITRATION_LOST, DEFAULT_TWCR | TWINT | TWSTA);
+            retry_or_error(TWO_WIRES_ARBITRATION_LOST, DEFAULT_TWCR | TWINT | TWSTA);
 
 
             break;
@@ -229,7 +229,7 @@ void write_two_wires_start(uint8_t local_slave_address,
     TWCR = DEFAULT_TWCR | TWSTA | TWINT;
 }
 
-TWO_WIRES_ERR write_two_wires_join() {
+ERROR write_two_wires_join() {
     if (!sending_data) {
         throw_error(TWO_WIRES_NOT_SENDING);
     }
@@ -243,7 +243,7 @@ TWO_WIRES_ERR write_two_wires_join() {
     return error;
 }
 
-TWO_WIRES_ERR
+ERROR
 write_two_wires_sync(uint8_t local_slave_address, uint8_t local_data[], uint8_t local_data_len) {
     write_two_wires_start(local_slave_address, local_data, local_data_len);
     return write_two_wires_join();

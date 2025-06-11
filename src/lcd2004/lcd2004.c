@@ -1,5 +1,4 @@
 #include "lcd2004.h"
-#include "../serial/serial.h"
 #include "../timers/timer.h"
 #include <stdint.h>
 
@@ -35,17 +34,14 @@
 
 // https://cdn.sparkfun.com/assets/9/5/f/7/b/HD44780.pdf#page=24
 
-void throw_error_if_present(TWO_WIRES_ERR err) {
+void throw_error_if_present(ERROR err) {
     if (err) {
-        println_str("LCD error: TWO_WIRES_ERR: ");
-        println_num(err);
-        serial_queue_join();
-        throw_error(SEE_SERIAL);
+        throw_error(err);
     }
 }
 
 // rs 0:instruction, 1:data
-TWO_WIRES_ERR lcd_send_2_nibbles(uint8_t cmd, boolean rs) {
+ERROR lcd_send_2_nibbles(uint8_t cmd, boolean rs) {
     uint8_t high_nibble = (cmd & 0xF0) | 0x08 | rs;        // High nibble + backlight + maybe rs
     uint8_t low_nibble  = ((cmd << 4) & 0xF0) | 0x08 | rs; // Low nibble + backlight + maybe rs
 
@@ -63,31 +59,24 @@ TWO_WIRES_ERR lcd_send_2_nibbles(uint8_t cmd, boolean rs) {
 }
 
 
-TWO_WIRES_ERR write_char_lcd_2004(uint8_t charr) {
+ERROR write_char_lcd_2004(uint8_t charr) {
     return lcd_send_2_nibbles(charr, true);
 }
 
-TWO_WIRES_ERR lcd_clean() {
-    TWO_WIRES_ERR err = lcd_send_2_nibbles(0b1, false);
+ERROR lcd_clean() {
+    ERROR err = lcd_send_2_nibbles(0b1, false);
     if (!err) {
         sleep_ms(5);
     }
     return err;
 }
 
-TWO_WIRES_ERR lcd_set_cursor(uint8_t row, uint8_t col) {
+ERROR lcd_set_cursor(uint8_t row, uint8_t col) {
     // Validate bounds
-    if (row >= ROWS) {
-        println_str("lcd_set_cursor error: invalid row");
-        serial_queue_join();
-        throw_error(SEE_SERIAL);
+    if (row >= ROWS || col >= COLS) {
+        throw_error(LCD_INVALID_ROW_OR_COL);
     }
 
-    if (col >= COLS) {
-        println_str("lcd_set_cursor error: invalid col");
-        serial_queue_join();
-        throw_error(SEE_SERIAL);
-    }
 
     uint8_t address;
 
@@ -108,14 +97,14 @@ TWO_WIRES_ERR lcd_set_cursor(uint8_t row, uint8_t col) {
     }
 
     // Set DDRAM Address command: 1AAAAAAA (bit 7 = 1, bits 6-0 = address)
-    TWO_WIRES_ERR err = lcd_send_2_nibbles(0x80 | address, false);
+    ERROR err = lcd_send_2_nibbles(0x80 | address, false);
     if (!err)
         sleep_ms(5);
     return err;
 }
 
 
-TWO_WIRES_ERR lcd_write_string(const char *text) {
+ERROR lcd_write_string(const char *text) {
     while (*text) {
         uint8_t res = write_char_lcd_2004(*text);
         if (res)
@@ -160,13 +149,7 @@ void init_lcd_2004() {
 
 
     while (lcd_commands[current]) {
-        TWO_WIRES_ERR err = lcd_send_2_nibbles(lcd_commands[current], false);
-        if (err) {
-            println_str("LCD init error: TWO_WIRES_ERR: ");
-            println_num(err);
-            serial_queue_join();
-            throw_error(SEE_SERIAL);
-        }
+        throw_error_if_present(lcd_send_2_nibbles(lcd_commands[current], false));
         sleep_ms(10);
         current++;
     }
