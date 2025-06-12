@@ -16,8 +16,8 @@ void init_errors() {
 
 // Busy wait for a while, no need for interrupts
 void wait() {
-    for (unsigned int i = 0; i < 10000; i++)
-        for (int j = 0; j < 10; j++)
+    for (volatile unsigned int i = 0; i < 10000; i++)
+        for (volatile int j = 0; j < 10; j++)
             ;
 }
 

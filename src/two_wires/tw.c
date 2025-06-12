@@ -250,8 +250,8 @@ write_two_wires_sync(uint8_t local_slave_address, uint8_t local_data[], uint8_t 
 }
 
 void scan_i2c_addresses() {
-    println_str("Start scan");
-    serial_queue_join();
+    // println_str("Start scan");
+    // serial_queue_join();
 
     char hex_addr_str[5]; // To store "0xHH\0" for printing
     hex_addr_str[0] = '0';
@@ -268,13 +268,13 @@ void scan_i2c_addresses() {
             hex_addr_str[2] = (high_nibble < 10) ? (high_nibble + '0') : (high_nibble - 10 + 'A');
             hex_addr_str[3] = (low_nibble < 10) ? (low_nibble + '0') : (low_nibble - 10 + 'A');
 
-            println_str(hex_addr_str);
+            // println_str(hex_addr_str);
 
-            serial_queue_join();
+            // serial_queue_join();
         }
         sleep_ms(10);
     }
 
-    println_str("Scan done");
-    serial_queue_join();
+    // println_str("Scan done");
+    // serial_queue_join();
 }

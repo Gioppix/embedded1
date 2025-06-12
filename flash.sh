@@ -86,5 +86,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+avr-size -C --mcu=atmega328p build/firmware.elf
+
 echo "📝 Disassembled assembly saved to $DISASM_FILE"
 echo "📁 All build artifacts are in the '$BUILD_DIR' directory"

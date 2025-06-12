@@ -1,5 +1,4 @@
 #include "timer.h"
-#include "../software-serial/sw-serial.h"
 
 // https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf#page=87
 #define TCCR0A EXPAND_ADDRESS(0x44)
@@ -61,7 +60,7 @@ INTERRUPT(14) {
         }
     }
 
-    process_sw_serial_tick();
+    // process_sw_serial_tick();
 }
 
 

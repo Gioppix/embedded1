@@ -106,7 +106,7 @@ ERROR lcd_set_cursor(uint8_t row, uint8_t col) {
 
 ERROR lcd_write_string(const char *text) {
     while (*text) {
-        uint8_t res = write_char_lcd_2004(*text);
+        ERROR res = write_char_lcd_2004(*text);
         if (res)
             return res;
         sleep_ms(1);
@@ -115,6 +115,33 @@ ERROR lcd_write_string(const char *text) {
     return ALL_GOOD;
 }
 
+ERROR lcd_write_uint16(uint16_t value) {
+    char buffer[6]; // Max 5 digits + null terminator for uint16_t (0-65535)
+    int  i = 0;
+
+    // Handle zero case
+    if (value == 0) {
+        buffer[0] = '0';
+        buffer[1] = '\0';
+    } else {
+        // Convert to string (reverse order)
+        uint16_t temp = value;
+        while (temp > 0) {
+            buffer[i++] = '0' + (temp % 10);
+            temp /= 10;
+        }
+        buffer[i] = '\0';
+
+        // Reverse the string
+        for (int j = 0; j < i / 2; j++) {
+            char temp_char    = buffer[j];
+            buffer[j]         = buffer[i - 1 - j];
+            buffer[i - 1 - j] = temp_char;
+        }
+    }
+
+    return lcd_write_string(buffer);
+}
 
 void init_lcd_2004() {
     // Power stabilization delay, apparently important

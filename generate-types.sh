@@ -2,23 +2,24 @@ c_file="src/generated.h"
 ts_file="frontend/src/lib/generated.ts"
 
 # Define enums as associative arrays
-BACKEND_TO_FRONTEND_KEYS="FRAME_START FRAME_END"
+BACKEND_TO_FRONTEND_KEYS="FRAME_START FRAME_END BOOTED"
 
 FRONTEND_TO_BACKEND_KEYS="BUTTON_PRESS"
 
 # Define variables
-VARIABLES_KEYS="SCREENX SCREENY BAUD"
-VARIABLES_VALUES="48 48 1000000"
+VARIABLES_KEYS="SCREENX SCREENY BAUD BITS_PER_COLOR"
+# screen size x must be multiple of 12
+VARIABLES_VALUES="24 24 1000000 2"
 
 # Function to generate C enum
 generate_c_enum() {
     local enum_name="$1"
     local keys="$2"
 
-    echo "typedef enum {" >> "$c_file"
+    echo "typedef enum __attribute__((packed)) {" >> "$c_file"
     local key_array=($keys)
     for i in "${!key_array[@]}"; do
-        echo "    ${key_array[$i]}," >> "$c_file"
+        echo "    ${key_array[$i]} = ${i}," >> "$c_file"
     done
     echo "} ${enum_name};" >> "$c_file"
     echo "" >> "$c_file"
@@ -32,7 +33,7 @@ generate_ts_enum() {
     echo "export enum ${enum_name} {" >> "$ts_file"
     local key_array=($keys)
     for i in "${!key_array[@]}"; do
-        echo "    ${key_array[$i]}," >> "$ts_file"
+        echo "    ${key_array[$i]} = ${i}," >> "$ts_file"
     done
     echo "}" >> "$ts_file"
     echo "" >> "$ts_file"

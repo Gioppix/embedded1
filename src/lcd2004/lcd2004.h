@@ -7,6 +7,7 @@
 void init_lcd_2004();
 
 ERROR lcd_write_string(const char *);
+ERROR lcd_write_uint16(uint16_t);
 
 ERROR lcd_clean();
 

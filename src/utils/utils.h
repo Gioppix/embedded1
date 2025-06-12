@@ -26,13 +26,16 @@ typedef uint8_t boolean;
     for (boolean __critical_flag = (manage_global_interrupts(false), true); __critical_flag;       \
          __critical_flag         = false, manage_global_interrupts(true))
 
-typedef enum {
+// __attribute__((packed)) NEEDED here otherwise it defaults to 4 bytes...
+typedef enum __attribute__((packed)) {
+    // Must be 0 to easly check if error is false
     ALL_GOOD = 0,
 
     // Start from 2 so that we can see the led blink
-    USART_OUT_QUEUE_FULL = 2,
+    USART_ALREADY_SENDING = 2,
     USART_IN_QUEUE_FULL,
     BAD_INTERRUPT,
+    GAME_MAX_ENTITIES_REACHED,
     CONVERSION_NOT_STARTED,
     CONVERSION_NOT_REQUESTED,
     TWO_WIRES_ALREADY_SENDING,

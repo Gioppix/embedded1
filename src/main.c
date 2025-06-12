@@ -1,10 +1,13 @@
 #include "analog/analog.h"
+#include "game/game.h"
+#include "generated.h"
 #include "lcd2004/lcd2004.h" // For the character LCD
+#include "ports.h"
 #include "serial/serial.h"
-#include "software-serial/sw-serial.h"
 #include "timers/timer.h"
 #include "two_wires/tw.h"
 #include "utils/utils.h"
+#include <math.h>
 #include <stdint.h>
 
 #define PCICR EXPAND_ADDRESS(0x68)
@@ -31,41 +34,53 @@ int main(void) {
     init_ADC();
     init_USART();
     init_two_wires();
-    init_sw_serial();
+    init_lcd_2004(); // Requires 2 wires
+
+    init_game();
 
     // Useful to find the display
     // scan_i2c_addresses();
-
-    init_lcd_2004(); // Requires 2 wires
 
 
     // Enable global interrupts
     manage_global_interrupts(true);
 
-    uint8_t col     = 0;
-    uint8_t max_col = 19;
-    uint8_t row     = 0;
-    uint8_t max_row = 3;
 
+    uint8_t status = SET_COMMAND(BOOTED);
+    send_data(&status, 1);
+    serial_out_join();
+
+    BIT_NO(GAME_SHOOT_PIN, 4);
+
+    CLEAR_BIT(DDRD, GAME_SHOOT_PIN);
+    // Enable pullup
+    SET_BIT(PORTD, GAME_SHOOT_PIN);
 
     while (1) {
-        // throw_error_if_present(lcd_clean());
-        // throw_error_if_present(lcd_set_cursor(row, col));
-        // throw_error_if_present(lcd_write_string("a"));
+        uint16_t angle = analog_read_pin_sync(1);
 
-        print_str("adeifnhrioufhuir4ufhobiuh4oifubhri4us");
-        print_str("adeifnhrioufhuir4ufhobiuh4oifubhri4us");
-        print_str("adeifnhrioufhuir4ufhobiuh4oifubhri4us");
-        print_str("adeifnhrioufhuir4ufhobiuh4oifubhri4us");
-        print_str("adeifnhrioufhuir4ufhobiuh4oifubhri4us");
-        print_str("adeifnhrioufhuir4ufhobiuh4oifubhri4us");
-        print_str("adeifnhrioufhuir4ufhobiuh4oifubhri4us");
-        print_str("adeifnhrioufhuir4ufhobiuh4oifubhri4us");
-        print_str("adeifnhrioufhuir4ufhobiuh4oifubhri4us");
-        print_str("adeifnhrioufhuir4ufhobiuh4oifubhri4us");
-        print_str("adeifnhrioufhuir4ufhobiuh4oifubhri4us");
-        print_str("adeifnhrioufhuir4ufhobiuh4oifubhri4us");
-        print_str("adeifnhrioufhuir4ufhobiuh4oifubhri4us");
+
+        uint16_t max_angle = (1 << 10) - 1;
+        float    angle_rad = ((float) (angle)) / (max_angle) *M_PI;
+
+        boolean pressed = !(PIND & (1 << GAME_SHOOT_PIN));
+
+        lcd_clean();
+        lcd_set_cursor(0, 0);
+        lcd_write_uint16(angle_rad * 1000);
+        lcd_set_cursor(1, 0);
+        lcd_write_uint16(pressed);
+        lcd_set_cursor(2, 0);
+        lcd_write_uint16(get_current_time());
+
+        process_tick(get_current_time(), angle_rad, pressed);
+        render();
+
+        start_sending_frame();
+        serial_out_join();
+
+
+        sleep_ms(20);
     }
 
     return 0;

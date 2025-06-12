@@ -4,12 +4,12 @@
 		is_connected,
 		status_message,
 		bytes_per_second,
-		incoming_byte_chunk, // You can use this to display incoming raw data
 		connect_to_serial_port,
 		disconnect_serial_port,
 		send_data,
-		BAUD_RATE // Import BAUD_RATE for display purposes
+		ready_frame
 	} from '$lib/serial'; // Adjust path if you place it elsewhere
+	import { BAUD, SCREENX } from '$lib/generated';
 
 	let message_to_send = $state('');
 	const text_encoder = new TextEncoder(); // For converting string input to Uint8Array
@@ -76,7 +76,7 @@
 				onclick={disconnect_serial_port}
 				class="focus:ring-opacity-50 w-full transform rounded-lg bg-red-600 px-6 py-3 font-bold text-white shadow-md transition-transform hover:scale-105 hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:outline-none sm:w-auto"
 			>
-				Disconnect
+				Disconnect Speed: {$bytes_per_second}
 			</button>
 		{/if}
 	</section>
@@ -102,28 +102,21 @@
 				</button>
 			</div>
 		</section>
-
-		<section class="rounded-lg bg-white p-4 shadow-lg">
-			<h2 class="mb-3 text-xl font-semibold text-gray-700">
-				Communication Status. Speed: {$bytes_per_second} B/s
-			</h2>
-			<div
-				id="communication-log"
-				class="mt-2 h-40 overflow-y-auto rounded border p-2 font-mono text-sm"
-			>
-				<!--
-				You can display incoming data here by subscribing to `incoming_byte_chunk`
-				For example:
-				<pre>{communication_log_content}</pre>
-				Update `communication_log_content` in the script's reactive block.
-				-->
-				<p class="text-gray-500">Raw byte chunks are logged to the browser console.</p>
-				<p class="text-gray-500">
-					To display data here, modify the script to update a reactive variable.
-				</p>
-			</div>
-		</section>
 	{/if}
+
+	<div class="flex w-full justify-center">
+		<div class="flex h-96 w-96 flex-col bg-red-300">
+			{#each Array.from( { length: Math.ceil($ready_frame.length / SCREENX) }, (_, i) => $ready_frame.slice(i * SCREENX, (i + 1) * SCREENX) ) as row}
+				<div class="flex w-full grow">
+					{#each row as cell}
+						{@const color =
+							cell === 0 ? '#FAFAFA' : cell === 1 ? 'gray' : cell === 2 ? 'black' : 'red'}
+						<div class="grow" style="background-color: {color};"></div>
+					{/each}
+				</div>
+			{/each}
+		</div>
+	</div>
 
 	<footer class="mt-8 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-700">
 		<h3 class="mb-2 font-bold text-yellow-800">Important Notes for Web Serial:</h3>
@@ -145,8 +138,8 @@
 				corresponding to your HC-06.
 			</li>
 			<li>
-				The default baud rate is set to {BAUD_RATE}. If your HC-06 uses a different rate, you'll
-				need to modify the `BAUD_RATE` constant in the `serial_service.ts` file.
+				The default baud rate is set to {BAUD}. If your HC-06 uses a different rate, you'll need to
+				modify the `BAUD_RATE` constant in the `serial_service.ts` file.
 			</li>
 		</ul>
 	</footer>
