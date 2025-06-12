@@ -30,10 +30,11 @@ BIT_NO(RXCIE0, 7);
 
 DECLARE_QUEUE(usart_in, uint8_t, uint8_t, 10)
 
-volatile boolean  sending_buffer           = false;
-volatile uint8_t *out_buffer               = 0;
-volatile uint16_t out_buffer_len           = 0;
-volatile uint16_t out_buffer_index_to_send = 0;
+volatile boolean  sending                         = false;
+volatile uint8_t *out_buffer                      = 0;
+volatile uint16_t out_buffer_len                  = 0;
+volatile uint16_t out_buffer_index_to_send        = 0;
+volatile boolean (*generator_function)(uint8_t *) = 0;
 
 // Interrupts (MUST DO N-1!!! THEY ARE ACTUALLY 0-BASED):
 // https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf#page=49
@@ -48,16 +49,25 @@ INTERRUPT(18) {
 
 // USART, data register empty
 INTERRUPT(19) {
-    if (out_buffer_index_to_send < out_buffer_len) {
+    if (generator_function) {
+        uint8_t data;
+        boolean success = generator_function(&data);
+        if (success) {
+            UDR0 = data;
+            return;
+        }
+    } else if (out_buffer_index_to_send < out_buffer_len) {
         UDR0 = out_buffer[out_buffer_index_to_send];
         out_buffer_index_to_send++;
         // UDRE interrupt remains enabled and will fire again
         // when UDR0 is ready for the next byte.
-    } else {
-        // Queue is empty, no more data to transmit. Disable interrupt
-        CLEAR_BIT(UCSR0B, UDRIE0);
-        sending_buffer = false;
+        return;
     }
+
+
+    // Queue is empty, no more data to transmit. Disable interrupt
+    CLEAR_BIT(UCSR0B, UDRIE0);
+    sending = false;
 }
 
 void init_USART() {
@@ -77,11 +87,12 @@ void init_USART() {
 }
 
 void send_data(uint8_t *buffer, uint16_t len) {
-    if (sending_buffer) {
+    if (sending) {
         throw_error(USART_ALREADY_SENDING);
     }
-    sending_buffer = true;
+    sending = true;
 
+    generator_function       = 0;
     out_buffer               = buffer;
     out_buffer_len           = len;
     out_buffer_index_to_send = 0;
@@ -90,8 +101,19 @@ void send_data(uint8_t *buffer, uint16_t len) {
     SET_BIT(UCSR0B, UDRIE0);
 }
 
+void send_data_generator_f(volatile boolean f(uint8_t *)) {
+    if (sending) {
+        throw_error(USART_ALREADY_SENDING);
+    }
+    sending = true;
+
+    generator_function = f;
+
+    SET_BIT(UCSR0B, UDRIE0);
+}
+
 void serial_out_join() {
-    while (sending_buffer) {
+    while (sending) {
         sleep();
     }
 }

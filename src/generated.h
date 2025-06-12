@@ -6,8 +6,8 @@
 
 #include <stdint.h>
 
-#define SCREENX 24
-#define SCREENY 24
+#define SCREENX 48
+#define SCREENY 48
 #define BAUD 1000000
 #define BITS_PER_COLOR 2
 

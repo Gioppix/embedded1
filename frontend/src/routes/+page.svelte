@@ -7,7 +7,8 @@
 		connect_to_serial_port,
 		disconnect_serial_port,
 		send_data,
-		ready_frame
+		ready_frame,
+		fps
 	} from '$lib/serial'; // Adjust path if you place it elsewhere
 	import { BAUD, SCREENX } from '$lib/generated';
 
@@ -42,7 +43,7 @@
 	<header class="mb-6">
 		<h1 class="text-3xl font-bold text-indigo-700">HC-06 Web Serial Communicator</h1>
 		<p class="text-sm text-gray-600">
-			Using Svelte 5, Tailwind CSS, and Web Serial API (Refactored)
+			Using Svelte 5, Tailwind CSS, and Web Serial API (Refactored) FPS: {$fps}
 		</p>
 	</header>
 

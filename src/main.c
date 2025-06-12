@@ -65,22 +65,27 @@ int main(void) {
 
         boolean pressed = !(PIND & (1 << GAME_SHOOT_PIN));
 
-        lcd_clean();
-        lcd_set_cursor(0, 0);
-        lcd_write_uint16(angle_rad * 1000);
-        lcd_set_cursor(1, 0);
-        lcd_write_uint16(pressed);
-        lcd_set_cursor(2, 0);
-        lcd_write_uint16(get_current_time());
 
-        process_tick(get_current_time(), angle_rad, pressed);
-        render();
+        MEASURE_TIME(logic_time) {
+            process_tick(get_current_time(), angle_rad, pressed);
+        }
 
-        start_sending_frame();
-        serial_out_join();
+        MEASURE_TIME(frame_plus_render_time) {
+            start_sending_frame();
+            serial_out_join();
+        }
 
+        // lcd_clean();
+        // lcd_set_cursor(0, 0);
+        // lcd_write_string("L:");
+        // lcd_set_cursor(0, 3);
+        // lcd_write_uint16(logic_time);
+        // lcd_set_cursor(1, 0);
+        // lcd_write_string("R:");
+        // lcd_set_cursor(1, 3);
+        // lcd_write_uint16(frame_plus_render_time);
 
-        sleep_ms(20);
+        // sleep_ms(1000);
     }
 
     return 0;

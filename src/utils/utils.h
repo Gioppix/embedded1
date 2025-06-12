@@ -59,6 +59,19 @@ __attribute__((always_inline)) inline void manage_global_interrupts(boolean enab
     MANAGE_BIT(SREG, 7, enable);
 };
 
+#define MEASURE_TIME(var_name_param)                                                               \
+    uint32_t var_name_param = 0;            /* Declare and initialize the duration variable */     \
+    uint32_t __start_time_##var_name_param; /* Unique temporary variable for start time */         \
+    /* This loop runs once: records start time, allows block execution, then calculates duration   \
+     */                                                                                            \
+    for (int __run_once_##var_name_param =                                                         \
+             (__start_time_##var_name_param = get_current_time(), 1);                              \
+         __run_once_##var_name_param;                                                              \
+         __run_once_##var_name_param = 0,                                                          \
+             var_name_param          = get_current_time() - __start_time_##var_name_param)
+/* The user's code block becomes the body of this for-loop */
+
+
 #define PORTB EXPAND_ADDRESS(0x25)
 #define DEFINE_COLOR_FUNCTIONS(color, address, bit_no)                                             \
     __attribute__((always_inline)) inline void on_##color() {                                      \

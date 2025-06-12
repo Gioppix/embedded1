@@ -28,20 +28,6 @@
 // C cast in positive integers does a floor operation; 2.5 becomes 2 and paints the correct pixel
 
 
-typedef uint8_t canvas_t[SCREENY][SCREENX / COLORS_PER_BYTE];
-// Never used; useful to check the size
-const uint16_t ARRAY_SIZE = sizeof(canvas_t);
-
-// Create a struct to send the command together with the actual data
-typedef struct {
-    BACKEND_TO_FRONTEND start_command;
-    volatile canvas_t   canvas;
-    BACKEND_TO_FRONTEND end_command;
-} frame_message_t;
-
-volatile frame_message_t frame_message_1;
-
-
 // Values are the colors
 typedef enum __attribute((__packed__)) {
     PROJ           = 1,
@@ -95,8 +81,6 @@ uint8_t spawn_entity_non_init() {
 }
 
 void process_tick(uint32_t current_ms, float angle_rad, boolean shoot_pressed) {
-    lcd_set_cursor(3, 0);
-    lcd_write_uint16(angle_rad);
     if (last_tick == 0) {
         last_tick = current_ms;
         return;
@@ -163,31 +147,165 @@ void process_tick(uint32_t current_ms, float angle_rad, boolean shoot_pressed) {
     }
 }
 
-// Choose
-void render() {
-    volatile canvas_t *canvas = &frame_message_1.canvas;
+typedef struct {
+    uint8_t color;
+    uint8_t x_pos;
+    uint8_t y_pos;
+} colored_pixels_t;
 
-    // Clear canvas
-    for (uint8_t i = 0; i < sizeof(canvas_t); i++) {
-        ((volatile uint8_t *) (*canvas))[i] = 0;
-    }
+colored_pixels_t colored_pixels[MAX_ENTITIES_LEN];
+uint8_t          num_drawable_pixels;
 
-    for (uint8_t i = 0; i < entities_len; i++) {
-        uint8_t x     = (uint8_t) entities[i].pos_x;
-        uint8_t y     = (uint8_t) entities[i].pos_y;
-        uint8_t color = entities[i].variant; // By definition variant value is the color
+// Tracks the sent pixel
+uint8_t current_pixel_idx = 0;
+// Tracks the state of sending a frame
+uint8_t frame_send_status;
+// Used as the current row index (Y-coordinate on screen) during frame sending
+uint8_t x_send_status;
+// Used as the current byte column index in the current row during frame sending
+uint8_t y_send_status;
 
-        uint8_t shifted_color = color << (BITS_PER_COLOR * (x % COLORS_PER_BYTE));
+volatile boolean generator_f(uint8_t *data) {
+    switch (frame_send_status) {
+        case 0:
+            *data = SET_COMMAND(FRAME_START);
+            frame_send_status++;
+            x_send_status = 0; // current_row
+            y_send_status = 0; // current_byte_col
+            return true;
 
-        (*canvas)[y][x / COLORS_PER_BYTE] |= shifted_color;
+        case 1: { // Sending frame data
+            // Check if all rows have been rendered and sent
+            if (x_send_status == SCREENY) {
+                *data = SET_COMMAND(FRAME_END);
+                frame_send_status++; // Move to next state (typically done/default)
+                return true;
+            }
+
+            uint8_t current_row      = x_send_status;
+            uint8_t current_byte_col = y_send_status;
+            uint8_t byte_to_send     = 0; // Initialize to 0 (all data bits 0, MSB command bit 0)
+
+            // Iterate through the sorted colored_pixels to find pixels for the current byte
+            // current_pixel_idx points to the next pixel in colored_pixels to consider
+            while (current_pixel_idx < num_drawable_pixels) {
+                colored_pixels_t *pixel = &colored_pixels[current_pixel_idx];
+
+                if (pixel->y_pos < current_row) {
+                    // This pixel is for a previous row that we've already passed. Skip it.
+                    current_pixel_idx++;
+                    continue;
+                }
+
+                if (pixel->y_pos > current_row) {
+                    // This pixel (and all subsequent ones due to sorting) are for future rows.
+                    // So, no more contributions from colored_pixels for the current_row.
+                    // The current byte_to_send (which is likely 0) is complete for this (row,
+                    // byte_col).
+                    break;
+                }
+
+                // At this point, pixel->y_pos == current_row. Check its byte column.
+                // Calculate which byte column this pixel falls into.
+                uint8_t pixel_byte_col_for_pixel = pixel->x_pos / COLORS_PER_BYTE;
+
+                if (pixel_byte_col_for_pixel < current_byte_col) {
+                    // This pixel is for a previous byte column in the current_row. Skip it.
+                    current_pixel_idx++;
+                    continue;
+                }
+
+                if (pixel_byte_col_for_pixel > current_byte_col) {
+                    // This pixel (and others after it on this row, if any) are for future byte
+                    // columns. So, no more contributions from colored_pixels for the
+                    // current_byte_col. The current byte_to_send is complete.
+                    break;
+                }
+
+                // At this point, pixel->y_pos == current_row AND
+                // pixel_byte_col_for_pixel == current_byte_col.
+                // This means the pixel at colored_pixels[current_pixel_idx]
+                // belongs in the current byte_to_send!
+
+                uint8_t color_value = pixel->color;
+                // Determine the pixel's position *within* the current byte
+                // e.g., is it the 0th, 1st, or Nth color slot in this byte
+                uint8_t pixel_pos_in_byte = pixel->x_pos % COLORS_PER_BYTE;
+
+                // Shift the color into the correct bit position(s) within the byte.
+                // This assumes BITS_PER_COLOR and COLORS_PER_BYTE are set up so that
+                // (color_value << (BITS_PER_COLOR * pixel_pos_in_byte)) fits within
+                // the bits allocated for color data (e.g., lower 7 bits if MSB is command).
+                uint8_t shifted_color = color_value << (BITS_PER_COLOR * pixel_pos_in_byte);
+
+                byte_to_send |= shifted_color; // Combine with any other pixels in this byte
+
+                current_pixel_idx++; // Consume this pixel, move to the next in colored_pixels
+                                     // to check if it also fits in the current byte_to_send.
+            }
+
+            *data = byte_to_send; // Assign the fully composed byte (MSB should be 0 for data)
+
+            // Advance iterators to the next byte position in the frame
+            y_send_status++; // Move to the next byte column in the current row
+            if (y_send_status ==
+                (SCREENX / COLORS_PER_BYTE)) { // Reached the end of byte columns for this row
+                y_send_status = 0; // Reset byte column index to the beginning of a new row
+                x_send_status++;   // Move to the next row
+            }
+            return true; // Indicate that this data byte is valid
+        }
+
+        default:
+            return false;
     }
 }
 
-
 void start_sending_frame() {
-    frame_message_1.start_command = SET_COMMAND(FRAME_START);
-    frame_message_1.end_command   = SET_COMMAND(FRAME_END);
+    num_drawable_pixels = 0; // Reset count for the current frame
 
+    // 1. Initialize colored_pixels from entities
+    // Iterate through all active entities
+    for (uint8_t i = 0; i < entities_len; i++) {
+        // Safety break: ensure we don't write out of bounds for colored_pixels.
+        // This should not be hit if MAX_ENTITIES_LEN is consistent.
+        if (num_drawable_pixels >= MAX_ENTITIES_LEN) {
+            break;
+        }
 
-    send_data((uint8_t *) &frame_message_1, sizeof(frame_message_t));
+        uint8_t pixel_x = (uint8_t) entities[i].pos_x;
+        uint8_t pixel_y = (uint8_t) entities[i].pos_y;
+
+        // Ensure pixels are within screen boundaries after casting
+        if (pixel_x < SCREENX && pixel_y < SCREENY) {
+            colored_pixels[num_drawable_pixels].x_pos = pixel_x;
+            colored_pixels[num_drawable_pixels].y_pos = pixel_y;
+            colored_pixels[num_drawable_pixels].color = entities[i].variant;
+            num_drawable_pixels++;
+        }
+    }
+
+    // 2. Sort colored_pixels by y_pos, then by x_pos (Bubble Sort)
+    //    Only sort the valid part of the array, i.e., up to num_drawable_pixels.
+    if (num_drawable_pixels > 1) { // Only sort if there's more than one element
+        for (uint8_t i = 0; i < num_drawable_pixels - 1; i++) {
+            for (uint8_t j = 0; j < num_drawable_pixels - 1 - i; j++) {
+                // Compare y_pos first
+                if (colored_pixels[j].y_pos > colored_pixels[j + 1].y_pos ||
+                    // If y_pos is the same, compare x_pos
+                    (colored_pixels[j].y_pos == colored_pixels[j + 1].y_pos &&
+                     colored_pixels[j].x_pos > colored_pixels[j + 1].x_pos)) {
+                    // Swap elements
+                    colored_pixels_t temp = colored_pixels[j];
+                    colored_pixels[j]     = colored_pixels[j + 1];
+                    colored_pixels[j + 1] = temp;
+                }
+            }
+        }
+    }
+
+    // Reset frame send status and the current_pixel_idx for generator_f
+    frame_send_status = 0;
+    current_pixel_idx = 0; // This is the 'global pointer' for generator_f to iterate colored_pixels
+    send_data_generator_f(generator_f);
 }

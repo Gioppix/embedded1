@@ -8,6 +8,14 @@ export const bytes_per_second = writable<number>(0);
 export const ready_frame = writable<number[]>(Array(SCREENX * SCREENY).fill(0));
 let bytes_queue: number[] = [];
 
+let frames = 0;
+export const fps = writable(0);
+
+setInterval(() => {
+	fps.set(frames);
+	frames = 0;
+}, 1000);
+
 const COLORS_PER_BYTE = Math.floor((8 - 1) / BITS_PER_COLOR);
 const TOTAL_FRAME_TRANSFER_BYTES = SCREENY * Math.floor(SCREENX / COLORS_PER_BYTE);
 let frame: number[] = [];
@@ -68,6 +76,7 @@ function process() {
 					break; // Break from switch, process() will be called again if queue has data
 				}
 				ready_frame.set(structuredClone(frame));
+				frames++;
 				reset();
 				break;
 			default:

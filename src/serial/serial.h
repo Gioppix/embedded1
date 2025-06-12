@@ -8,6 +8,7 @@
 
 void init_USART();
 void send_data(uint8_t *, uint16_t);
+void send_data_generator_f(volatile boolean (*)(uint8_t *));
 
 // Wait for empty queue
 void serial_out_join();
