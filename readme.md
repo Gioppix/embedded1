@@ -85,5 +85,4 @@ The disconnection works thanks to `Vite`'s live reload: editing `generated.ts` w
 
 ## Next steps
 
-- Really understand [what's going on](https://www.nongnu.org/avr-libc/user-manual/FAQ.html#faq_libm)
-- a
+- See the presentation
