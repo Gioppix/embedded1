@@ -1,9 +1,6 @@
 # Parachute 0.5
 
-<video width="600" controls>
-  <source src="./pitch.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+Demo Video: `./pitch.mp4` (video file not accessible via markdown link)
 
 ### Goals
 
