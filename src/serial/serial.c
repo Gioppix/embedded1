@@ -47,12 +47,12 @@ INTERRUPT(18) {
     }
 }
 
-// USART, data register empty
+// USART, Data Register Empty
 INTERRUPT(19) {
     if (generator_function) {
         uint8_t data;
-        boolean success = generator_function(&data);
-        if (success) {
+        boolean data_available = generator_function(&data);
+        if (data_available) {
             UDR0 = data;
             return;
         }

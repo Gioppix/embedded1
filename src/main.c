@@ -56,35 +56,57 @@ int main(void) {
     // Enable pullup
     SET_BIT(PORTD, GAME_SHOOT_PIN);
 
+    uint32_t last_frame_plus_render_time = 0;
+    uint32_t last_logic_time             = 0;
+    uint32_t last_total_time             = 0;
+
     while (1) {
-        uint16_t angle = analog_read_pin_sync(1);
+        MEASURE_TIME(total_time) {
+            // lcd_clean();
+            // lcd_set_cursor(0, 0);
+            // lcd_write_string("L:");
+            // lcd_set_cursor(0, 3);
+            // lcd_write_uint16(last_logic_time);
+            // lcd_set_cursor(1, 0);
+            // lcd_write_string("R:");
+            // lcd_set_cursor(1, 3);
+            // lcd_write_uint16(last_frame_plus_render_time);
+            // lcd_set_cursor(2, 0);
+            // lcd_write_string("T:");
+            // lcd_set_cursor(2, 3);
+            // lcd_write_uint16(last_total_time);
+
+            uint16_t angle = analog_read_pin_sync(1);
 
 
-        uint16_t max_angle = (1 << 10) - 1;
-        float    angle_rad = ((float) (angle)) / (max_angle) *M_PI;
+            uint16_t max_angle = (1 << 10) - 1;
+            float    angle_rad = ((float) (angle)) / (max_angle) *M_PI;
 
-        boolean pressed = !(PIND & (1 << GAME_SHOOT_PIN));
+            boolean pressed = !(PIND & (1 << GAME_SHOOT_PIN));
 
 
-        MEASURE_TIME(logic_time) {
-            process_tick(get_current_time(), angle_rad, pressed);
+            MEASURE_TIME(logic_time) {
+                process_tick(get_current_time(), angle_rad, pressed);
+            }
+            last_logic_time = logic_time;
+
+            MEASURE_TIME(frame_plus_render_time) {
+                start_sending_frame();
+                serial_out_join();
+            }
+            last_frame_plus_render_time = frame_plus_render_time;
         }
+        last_total_time = total_time;
 
-        MEASURE_TIME(frame_plus_render_time) {
-            start_sending_frame();
-            serial_out_join();
-        }
+        uint8_t values[4] = {
+            SET_COMMAND(SCORE),
+            SET_DATA(score),
+            SET_COMMAND(BULLETS),
+            SET_DATA(bullets),
+        };
 
-        // lcd_clean();
-        // lcd_set_cursor(0, 0);
-        // lcd_write_string("L:");
-        // lcd_set_cursor(0, 3);
-        // lcd_write_uint16(logic_time);
-        // lcd_set_cursor(1, 0);
-        // lcd_write_string("R:");
-        // lcd_set_cursor(1, 3);
-        // lcd_write_uint16(frame_plus_render_time);
-
+        send_data(values, 4);
+        serial_out_join();
         // sleep_ms(1000);
     }
 

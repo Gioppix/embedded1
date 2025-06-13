@@ -1,3 +1,6 @@
+#ifndef DECLARE_QUEUE_H
+#define DECLARE_QUEUE_H
+
 #define DECLARE_QUEUE(name, data_type, len_type, size)                                             \
     data_type name##_queue[size];                                                                  \
     len_type  name##_head = 0;                                                                     \
@@ -29,11 +32,24 @@
         if (name##_head == name##_tail) {                                                          \
             return false;                                                                          \
         }                                                                                          \
-        *data       = name##_queue[name##_head];                                                   \
+        if (data) {                                                                                \
+            *data = name##_queue[name##_head];                                                     \
+        }                                                                                          \
+                                                                                                   \
         name##_head = (name##_head + 1) % size;                                                    \
+        return true;                                                                               \
+    }                                                                                              \
+                                                                                                   \
+    boolean name##_first(data_type *data) {                                                        \
+        if (name##_head == name##_tail) {                                                          \
+            return false; /* Queue is empty */                                                     \
+        }                                                                                          \
+        *data = name##_queue[name##_head];                                                         \
         return true;                                                                               \
     }                                                                                              \
                                                                                                    \
     boolean name##_empty() {                                                                       \
         return name##_head == name##_tail;                                                         \
     }
+
+#endif

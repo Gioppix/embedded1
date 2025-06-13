@@ -2,14 +2,14 @@ c_file="src/generated.h"
 ts_file="frontend/src/lib/generated.ts"
 
 # Define enums as associative arrays
-BACKEND_TO_FRONTEND_KEYS="FRAME_START FRAME_END BOOTED"
+BACKEND_TO_FRONTEND_KEYS="FRAME_START FRAME_END BOOTED SCORE BULLETS"
 
 FRONTEND_TO_BACKEND_KEYS="BUTTON_PRESS"
 
 # Define variables
 VARIABLES_KEYS="SCREENX SCREENY BAUD BITS_PER_COLOR"
 # screen size x must be multiple of 12
-VARIABLES_VALUES="48 48 1000000 2"
+VARIABLES_VALUES="60 60 1000000 2"
 
 # Function to generate C enum
 generate_c_enum() {

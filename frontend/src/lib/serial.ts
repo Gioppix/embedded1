@@ -11,6 +11,9 @@ let bytes_queue: number[] = [];
 let frames = 0;
 export const fps = writable(0);
 
+export const bullets = writable(0);
+export const score = writable(0);
+
 setInterval(() => {
 	fps.set(frames);
 	frames = 0;
@@ -37,6 +40,8 @@ let writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
 let keep_reading = false;
 let _is_connected_internal = false;
 
+let last_command: BACKEND_TO_FRONTEND | undefined;
+
 is_connected.subscribe((value) => (_is_connected_internal = value));
 
 setInterval(process, 10);
@@ -54,11 +59,18 @@ function process() {
 	if (is_command) {
 		// Command
 		switch (byte) {
+			case BACKEND_TO_FRONTEND.SCORE:
+				last_command = BACKEND_TO_FRONTEND.SCORE;
+				break;
+			case BACKEND_TO_FRONTEND.BULLETS:
+				last_command = BACKEND_TO_FRONTEND.BULLETS;
+				break;
 			case BACKEND_TO_FRONTEND.BOOTED:
 				reset();
 				console.info('booted msg');
 				break;
 			case BACKEND_TO_FRONTEND.FRAME_START:
+				last_command = BACKEND_TO_FRONTEND.FRAME_START;
 				console.info('FRAME_START');
 				reset();
 				break;
@@ -86,21 +98,28 @@ function process() {
 				break; // Break from switch
 		}
 	} else {
-		// Data
-		frame_bytes_read++;
-		for (let i = 0; i < COLORS_PER_BYTE; i++) {
-			const mask = (1 << BITS_PER_COLOR) - 1;
-			const extractedBits = (byte >> (i * BITS_PER_COLOR)) & mask;
-			frame.push(extractedBits);
-		}
+		switch (last_command) {
+			case BACKEND_TO_FRONTEND.BULLETS:
+				last_command = undefined;
+				bullets.set(byte);
+				break;
+			case BACKEND_TO_FRONTEND.SCORE:
+				last_command = undefined;
+				score.set(byte);
+				break;
+			case BACKEND_TO_FRONTEND.FRAME_START:
+				// Data
+				frame_bytes_read++;
+				for (let i = 0; i < COLORS_PER_BYTE; i++) {
+					const mask = (1 << BITS_PER_COLOR) - 1;
+					const extractedBits = (byte >> (i * BITS_PER_COLOR)) & mask;
+					frame.push(extractedBits);
+				}
 
-		if (frame_bytes_read >= TOTAL_FRAME_TRANSFER_BYTES) {
-			// Spontaneous transition to awaiting_command if a full frame is read
-			// This can happen if FRAME_END is missed but enough bytes for a frame are received.
-			// The next byte should ideally be FRAME_END or FRAME_START.
-			// If it's FRAME_END, it will be handled in the next process() call.
-			// If it's FRAME_START, it will also be handled.
-			// If it's garbage, it will be caught by the default in awaiting_command.
+				if (frame_bytes_read >= TOTAL_FRAME_TRANSFER_BYTES) {
+					console.error('Received too many frame bytes');
+				}
+				break;
 		}
 	}
 

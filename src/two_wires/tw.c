@@ -1,5 +1,6 @@
 // https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf#page=173
 #include "tw.h"
+#include "../gen_queue.h"
 #include "../serial/serial.h"
 #include "../timers/timer.h"
 #include <stdint.h>
@@ -48,8 +49,6 @@ BIT_NO(TWPS0, 0);
 // TWI Data Register
 #define TWDR EXPAND_ADDRESS(0xBB)
 
-#define MAX_DATA_LEN 255
-
 // Enable interrupts
 #define DEFAULT_TWCR TWEN | TWIE
 
@@ -57,14 +56,10 @@ BIT_NO(TWPS0, 0);
 #define PORTC    EXPAND_ADDRESS(0x28)
 #define TW_PORTS ((1 << 4) | (1 << 5))
 
-// No need for sending_data to be atomic since not modified inside interrupts
-boolean sending_data;
-
 volatile uint8_t slave_address;
-volatile uint8_t data[MAX_DATA_LEN];
-volatile uint8_t data_index_to_send;
-volatile uint8_t data_len;
-volatile boolean send_complete;
+
+DECLARE_QUEUE(tw_out, uint8_t, uint8_t, 50)
+
 volatile ERROR   error;
 volatile uint8_t retries_count;
 #define MAX_RETIRES 10
@@ -73,8 +68,7 @@ volatile uint8_t retries_count;
 // `maybe_can_continue_twcr`: If not 0, TWCR is set if MAX_RETIRES is not reached
 boolean retry_or_error(ERROR maybe_err, uint8_t maybe_can_continue_twcr) {
     if (retries_count > MAX_RETIRES) {
-        error         = maybe_err;
-        send_complete = true;
+        error = maybe_err;
 
         // REALLY REALLY REALLY important to always TWSTO (stop)
         // Hours wasted here count: 4
@@ -90,14 +84,15 @@ boolean retry_or_error(ERROR maybe_err, uint8_t maybe_can_continue_twcr) {
 }
 
 void send_byte_and_continue() {
-    if (data_index_to_send == data_len) {
+    if (tw_out_empty()) {
         // No data, stop
         TWCR = DEFAULT_TWCR | TWSTO | TWINT;
 
-        send_complete = true;
     } else {
         // Try to send byte
-        TWDR = data[data_index_to_send];
+        uint8_t data;
+        tw_out_first(&data);
+        TWDR = data;
         TWCR = DEFAULT_TWCR | TWINT;
     }
 }
@@ -147,7 +142,7 @@ INTERRUPT(24) {
             // Load next data byte, repeated START, STOP, or STOP+START based on
             // requirements
 
-            data_index_to_send++;
+            tw_out_dequeue(0);
             send_byte_and_continue();
 
             break;
@@ -210,35 +205,28 @@ void init_two_wires() {
 void write_two_wires_start(uint8_t local_slave_address,
                            uint8_t local_data[],
                            uint8_t local_data_len) {
-    if (sending_data) {
-        throw_error(TWO_WIRES_ALREADY_SENDING);
-    }
-    sending_data  = true;
-    send_complete = false;
     error         = ALL_GOOD;
     retries_count = 0;
 
-    slave_address      = local_slave_address;
-    data_len           = local_data_len;
-    data_index_to_send = 0;
-    for (uint8_t i = 0; i < local_data_len; i++) {
-        data[i] = local_data[i];
-    }
-
+    slave_address = local_slave_address;
+    tw_out_enqueue_n(local_data, local_data_len);
 
     TWCR = DEFAULT_TWCR | TWSTA | TWINT;
 }
 
 ERROR write_two_wires_join() {
-    if (!sending_data) {
-        throw_error(TWO_WIRES_NOT_SENDING);
+    boolean queue_empty = false;
+    CRITICAL {
+        queue_empty = tw_out_empty();
     }
 
-    while (!send_complete) {
+    while (!queue_empty) {
         sleep();
+        CRITICAL {
+            queue_empty = tw_out_empty();
+        }
     }
 
-    sending_data = false;
 
     return error;
 }

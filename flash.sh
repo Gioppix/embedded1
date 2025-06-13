@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Explanation:
+# https://www.nongnu.org/avr-libc/user-manual/group__demo__project.html
+
 # Exit on any error
 set -e
 

@@ -6,8 +6,8 @@
 
 #include <stdint.h>
 
-#define SCREENX 48
-#define SCREENY 48
+#define SCREENX 60
+#define SCREENY 60
 #define BAUD 1000000
 #define BITS_PER_COLOR 2
 
@@ -15,6 +15,8 @@ typedef enum __attribute__((packed)) {
     FRAME_START = 0,
     FRAME_END = 1,
     BOOTED = 2,
+    SCORE = 3,
+    BULLETS = 4,
 } BACKEND_TO_FRONTEND;
 
 typedef enum __attribute__((packed)) {

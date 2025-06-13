@@ -41,7 +41,7 @@ void throw_error_if_present(ERROR err) {
 }
 
 // rs 0:instruction, 1:data
-ERROR lcd_send_2_nibbles(uint8_t cmd, boolean rs) {
+void lcd_send_2_nibbles(uint8_t cmd, boolean rs) {
     uint8_t high_nibble = (cmd & 0xF0) | 0x08 | rs;        // High nibble + backlight + maybe rs
     uint8_t low_nibble  = ((cmd << 4) & 0xF0) | 0x08 | rs; // Low nibble + backlight + maybe rs
 
@@ -55,23 +55,20 @@ ERROR lcd_send_2_nibbles(uint8_t cmd, boolean rs) {
     sequence[4] = low_nibble | 0x04;  // Set enable bit
     sequence[5] = low_nibble & ~0x04; // Clear enable bit
 
-    return write_two_wires_sync(DISPLAY_I2C_ADDRESS, sequence, 6);
+    write_two_wires_start(DISPLAY_I2C_ADDRESS, sequence, 6);
 }
 
 
-ERROR write_char_lcd_2004(uint8_t charr) {
-    return lcd_send_2_nibbles(charr, true);
+void write_char_lcd_2004(uint8_t charr) {
+    lcd_send_2_nibbles(charr, true);
 }
 
-ERROR lcd_clean() {
-    ERROR err = lcd_send_2_nibbles(0b1, false);
-    if (!err) {
-        sleep_ms(5);
-    }
-    return err;
+void lcd_clean() {
+    lcd_send_2_nibbles(0b1, false);
+    sleep_ms(5);
 }
 
-ERROR lcd_set_cursor(uint8_t row, uint8_t col) {
+void lcd_set_cursor(uint8_t row, uint8_t col) {
     // Validate bounds
     if (row >= ROWS || col >= COLS) {
         throw_error(LCD_INVALID_ROW_OR_COL);
@@ -97,25 +94,21 @@ ERROR lcd_set_cursor(uint8_t row, uint8_t col) {
     }
 
     // Set DDRAM Address command: 1AAAAAAA (bit 7 = 1, bits 6-0 = address)
-    ERROR err = lcd_send_2_nibbles(0x80 | address, false);
-    if (!err)
-        sleep_ms(5);
-    return err;
+    lcd_send_2_nibbles(0x80 | address, false);
+
+    sleep_ms(5);
 }
 
 
-ERROR lcd_write_string(const char *text) {
+void lcd_write_string(const char *text) {
     while (*text) {
-        ERROR res = write_char_lcd_2004(*text);
-        if (res)
-            return res;
+        write_char_lcd_2004(*text);
         sleep_ms(1);
         text++;
     }
-    return ALL_GOOD;
 }
 
-ERROR lcd_write_uint16(uint16_t value) {
+void lcd_write_uint16(uint16_t value) {
     char buffer[6]; // Max 5 digits + null terminator for uint16_t (0-65535)
     int  i = 0;
 
@@ -140,7 +133,7 @@ ERROR lcd_write_uint16(uint16_t value) {
         }
     }
 
-    return lcd_write_string(buffer);
+    lcd_write_string(buffer);
 }
 
 void init_lcd_2004() {
@@ -176,8 +169,10 @@ void init_lcd_2004() {
 
 
     while (lcd_commands[current]) {
-        throw_error_if_present(lcd_send_2_nibbles(lcd_commands[current], false));
+        lcd_send_2_nibbles(lcd_commands[current], false);
         sleep_ms(10);
         current++;
     }
+
+    throw_error_if_present(write_two_wires_join());
 }

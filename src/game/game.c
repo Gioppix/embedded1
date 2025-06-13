@@ -45,11 +45,14 @@ typedef struct {
 
 // Speeds are declared in display%/sec, converted to px/sec
 #define SPEED_UNIT         (SCREENX / 100.f)
+#define MAX_AMMO           50
 #define RECHARGE_TIME_MS   100
-#define INITIAL_PROJ_SPEED (60.0f * SPEED_UNIT)
+#define REGEN_TIME_MS      180
+#define INITIAL_PROJ_SPEED (50.0f * SPEED_UNIT)
 #define PARACHUTE_SPEED    (-10.0f * SPEED_UNIT)
 #define G                  9.81f
 #define PARACHUTE_SPAWN_MS 1000
+#define CANNON_ENTITIES    (SCREENY / 10)
 
 #define MAX_ENTITIES_LEN 50
 entity_t entities[MAX_ENTITIES_LEN];
@@ -57,15 +60,21 @@ uint8_t  entities_len       = 0;
 uint32_t last_tick          = 0;
 uint32_t last_shot_ms       = 0;
 uint32_t last_chute_spawned = 0;
+uint32_t bullets_time       = 0;
+
+uint8_t score   = 0;
+uint8_t bullets = 0;
 
 #define RANDOM_LEN 20
 uint8_t randoms[RANDOM_LEN] = {12, 85, 3,  67, 91, 28, 54, 76, 19, 43,
                                8,  62, 37, 89, 15, 71, 46, 23, 58, 94};
 
 void init_game() {
-    entities[0].variant = CANNON_POINTER;
+    for (uint8_t i = 0; i < CANNON_ENTITIES; i++) {
+        entities[i].variant = CANNON_POINTER;
+    }
 
-    entities_len = 1;
+    entities_len = CANNON_ENTITIES;
 }
 
 void delete_entity(uint8_t index) {
@@ -86,32 +95,66 @@ void process_tick(uint32_t current_ms, float angle_rad, boolean shoot_pressed) {
         return;
     }
 
-    float delta_seconds = (current_ms - last_tick) / 1000.0;
-    last_tick           = current_ms;
+    uint32_t delta         = current_ms - last_tick;
+    float    delta_seconds = delta / 1000.0;
+    last_tick              = current_ms;
 
     // angle_rad             = fmaxf(0, fminf(angle_rad, M_PI));
     float aim_component_x = cosf((float) angle_rad);
     float aim_component_y = sinf((float) angle_rad);
 
-    float len         = ((float) SCREENX) / 5;
-    entities[0].pos_x = SCREENX / 2.0 + aim_component_x * len;
-    entities[0].pos_y = SCREENY * 1.0 - fmaxf(aim_component_y, 0) * len;
+    float len = ((float) SCREENX) / 5 / 4;
 
+    for (uint8_t i = 0; i < CANNON_ENTITIES; i++) {
+        entities[i].pos_x = SCREENX / 2.0 + aim_component_x * (i + 1);
+        entities[i].pos_y = SCREENY * 1.0 - fmaxf(aim_component_y, 0) * (i + 1);
+    }
+
+    bullets_time += delta;
+    bullets += bullets_time / REGEN_TIME_MS;
+    bullets_time %= REGEN_TIME_MS;
+
+    if (bullets > MAX_AMMO) {
+        score += bullets - MAX_AMMO;
+        bullets = MAX_AMMO;
+    }
 
     // Process physics, skip cannon
-    for (uint8_t i = 1; i < entities_len; i++) {
+    for (uint8_t i = CANNON_ENTITIES; i < entities_len; i++) {
+        boolean dead = false;
+
         // Apply gravity only to projectiles
         if (entities[i].variant == PROJ) {
             entities[i].speed_y -= G * delta_seconds;
+        } else if (entities[i].variant == PARACHUTE) {
+            for (uint8_t j = 1; j < entities_len; j++) {
+                if (entities[j].variant == PROJ) {
+                    float dx                 = fabsf(entities[i].pos_x - entities[j].pos_x);
+                    float dy                 = fabsf(entities[i].pos_y - entities[j].pos_y);
+                    float manhattan_distance = dx + dy;
+
+                    if (manhattan_distance <= 2.0f) {
+                        dead = true;
+                        score++;
+                        break;
+                    }
+                }
+            }
         }
 
-        // Update position based on velocity
-        entities[i].pos_x += entities[i].speed_x * delta_seconds;
-        entities[i].pos_y -= entities[i].speed_y * delta_seconds;
+        if (!dead) {
+            // Update position based on velocity
+            entities[i].pos_x += entities[i].speed_x * delta_seconds;
+            entities[i].pos_y -= entities[i].speed_y * delta_seconds;
+        }
+
 
         // Check bounds and hide entity if out of screen
         if (entities[i].pos_x < 0 || entities[i].pos_x >= SCREENX || entities[i].pos_y < 0 ||
-            entities[i].pos_y >= SCREENY) {
+            entities[i].pos_y >= SCREENY || dead) {
+            if (entities[i].variant == PARACHUTE && entities[i].pos_y >= SCREENY) {
+                throw_error(LOSER);
+            }
             delete_entity(i);
             i--;
         }
@@ -132,7 +175,8 @@ void process_tick(uint32_t current_ms, float angle_rad, boolean shoot_pressed) {
     }
 
     // Shoot?
-    if (shoot_pressed && last_shot_ms + RECHARGE_TIME_MS < current_ms) {
+    if (shoot_pressed && last_shot_ms + RECHARGE_TIME_MS < current_ms && bullets > 0) {
+        bullets--;
         uint8_t index = spawn_entity_non_init();
 
         // Shoot!
@@ -140,8 +184,8 @@ void process_tick(uint32_t current_ms, float angle_rad, boolean shoot_pressed) {
 
         entities[index] = (entity_t) {.variant = PROJ,
                                       // Cannon as initial pos
-                                      .pos_x   = entities[0].pos_x,
-                                      .pos_y   = entities[0].pos_y,
+                                      .pos_x   = entities[CANNON_ENTITIES - 1].pos_x,
+                                      .pos_y   = entities[CANNON_ENTITIES - 1].pos_y,
                                       .speed_x = INITIAL_PROJ_SPEED * aim_component_x,
                                       .speed_y = INITIAL_PROJ_SPEED * aim_component_y};
     }
@@ -174,17 +218,16 @@ volatile boolean generator_f(uint8_t *data) {
             y_send_status = 0; // current_byte_col
             return true;
 
-        case 1: { // Sending frame data
-            // Check if all rows have been rendered and sent
+        case 1: {
             if (x_send_status == SCREENY) {
                 *data = SET_COMMAND(FRAME_END);
-                frame_send_status++; // Move to next state (typically done/default)
+                frame_send_status++;
                 return true;
             }
 
             uint8_t current_row      = x_send_status;
             uint8_t current_byte_col = y_send_status;
-            uint8_t byte_to_send     = 0; // Initialize to 0 (all data bits 0, MSB command bit 0)
+            uint8_t byte_to_send     = 0;
 
             // Iterate through the sorted colored_pixels to find pixels for the current byte
             // current_pixel_idx points to the next pixel in colored_pixels to consider
