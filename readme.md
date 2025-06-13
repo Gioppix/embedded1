@@ -43,17 +43,17 @@ This project was only tested on MacOS, but supports Linux
 ├── flash.sh                 # All-in-one utility to compile and flash to Arduino
 ├── frontend                 # Frontend application
 └── src
-     ├── analog               # ADC-related
-     ├── game                 # Main game logic/rendering
-     ├── lcd2004              # LCD 2004
-     ├── serial               # USART
-     ├── timers               # Timers and utilities for time
-     ├── two_wires            # Two Wires Interface
-     ├── utils                # General utilities
-     ├── gen_queue.h          # Macro to generate a circual buffer
-     ├── generated.h          # Automatically generated file
-     ├── main.c
-     └── ports.h              # Commonly used ports
+    ├── analog               # ADC-related
+    ├── game                 # Main game logic/rendering
+    ├── lcd2004              # LCD 2004
+    ├── serial               # USART
+    ├── timers               # Timers and utilities for time
+    ├── two_wires            # Two Wires Interface
+    ├── utils                # General utilities
+    ├── gen_queue.h          # Macro to generate a circual buffer
+    ├── generated.h          # Automatically generated file
+    ├── main.c
+    └── ports.h              # Commonly used ports
 ```
 
 ## Compiling/burning
