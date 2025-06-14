@@ -1,6 +1,6 @@
 # Parachute 0.5
 
-Demo Video: `./pitch.mp4` (video file not accessible via markdown link)
+<video height="480" src="./pitch.mov" controls />
 
 ### Goals
 
