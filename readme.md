@@ -1,6 +1,6 @@
 # Parachute 0.5
 
-<video height="480" src="./pitch.mov" controls />
+<video height="480" src="./pitch.mov" />
 
 ### Goals
 
